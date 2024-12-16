@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, Response
+from flask import Flask, jsonify, Response, request
 from typing import Any
 from markupsafe import escape
 from random import choice, random
@@ -78,9 +78,48 @@ def quote_count():
     return jsonify(count = len(quotes)),200
 
 
-@app.route("/quotes/random")
-def random_quote():
+@app.route("/quotes/random", methods =["GET"])
+def random_quote() -> dict:
     return jsonify(choice(quotes)),200
+
+
+@app.route("/quotes", methods=['POST'])
+def create_quote():
+    """создание новой цитаты и добавление ее в словарь"""
+    new_id = quotes[-1].get("id") + 1
+    data = request.json
+    new_quote = {"id" : new_id,
+                 "author" : data.get("author"),
+                 "text" : data.get("text")
+                }
+    quotes.append(new_quote)
+    print("data = ", data)
+    return jsonify(new_quote), 201
+
+
+@app.route("/quotes/<id>", methods=['PUT'])
+def edit_quote(id):
+    new_data = request.json
+    for quote in quotes:
+        if quote.get("id") == id:
+            if new_data.get("author"):
+                quote["author"] = new_data.get("author")
+            if new_data.get("text"):
+                quote["text"] = new_data.get("text")
+            return f'{quotes}'
+
+
+
+
+
+@app.route("/quotes/<id>", methods=['DELETE'])
+def delete(id):
+    for quote in quotes:
+        if quote.get("id") == id:
+            quotes.remove(quote)
+        return f"Quote with {id} is deleted.", 200
+    
+    
 
 
 if __name__ == "__main__":
