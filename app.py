@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, Response
 from typing import Any
 from markupsafe import escape
+from random import choice, random
 
 
 app = Flask(__name__)
@@ -71,10 +72,15 @@ def get_quote(quote_id: int) -> dict:
     return {"error":f"цитаты с id {quote_id} нет"}, 404
 
 
-@app.route("/quotes/count")
-def count_quote():
+@app.get("/quotes/count")
+def quote_count():
     qoutes_number = len(quotes)
-    return f'всего цитат {escape(qoutes_number)}',200
+    return jsonify(count = len(quotes)),200
+
+
+@app.route("/quotes/random")
+def random_quote():
+    return jsonify(choice(quotes)),200
 
 
 if __name__ == "__main__":
