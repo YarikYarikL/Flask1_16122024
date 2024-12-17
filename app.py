@@ -54,18 +54,18 @@ quotes = [
 
 @app.route("/") #первый url, который мы обрабатываем
 def hello_world():#функций-обработчик
-    return jsonify(hello="Hello, World!"),200
+    return jsonify(hello="Hello, World!"), 200
 
 
 @app.route("/about")
 def about():
-    return jsonify(about_me),200
+    return jsonify(about_me), 200
 
 
 @app.route("/quotes")
 def get_quotes() -> list[dict[str: Any]]:
     """ функция преобразует список словарей в массив объектов json"""
-    return jsonify(quotes),200
+    return jsonify(quotes), 200
 
 
 @app.route("/quotes/<int:quote_id>")
@@ -78,12 +78,12 @@ def get_quote(quote_id: int) -> dict:
 
 @app.get("/quotes/count")
 def quote_count():
-    return jsonify(count = len(quotes)),200
+    return jsonify(count = len(quotes)), 200
 
 
 @app.route("/quotes/random", methods =["GET"])
 def random_quote() -> dict:
-    return jsonify(choice(quotes)),200
+    return jsonify(choice(quotes)), 200
 
 
 @app.route("/quotes", methods=['POST'])
@@ -127,6 +127,7 @@ def delete(quote_id: int):
 @app.route("/quotes/filter")
 def filter_quotes():
     filtered_quotes = quotes.copy()
+    #request.args хранит данные, полученные из query parameters
     for key, value in request.args.items():
         result = []
         if key not in ("author", "text", "rating"):
