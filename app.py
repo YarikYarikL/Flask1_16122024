@@ -209,32 +209,11 @@ def edit_quote(quote_id: int):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+#homework
 @app.route("/quotes/filter")
 def filter_quotes():
-    filtered_quotes = quotes.copy()
-    #request.args хранит данные, полученные из query parameters
-    for key, value in request.args.items():
-        result = []
-        if key not in ("author", "text", "rating"):
-            return jsonify(error=f"Invalid param = {key}"), 400
-        if key == "rating":
-            value =int(value)
-        for quote in filtered_quotes:
-            if quote[key] == value:
-                result.append(quote)
-        filtered_quotes = result.copy()
-    return jsonify(filtered_quotes), 200
+    new_data = request.args.items()
+
 
 
 @app.route("/quotes/random", methods =["GET"])
