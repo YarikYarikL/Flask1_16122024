@@ -114,24 +114,42 @@ def quote_count():
     connection.close()    
     return jsonify(count = select_count[0]), 200
 
+@app.route("/quotes/<int:quote_id>", methods=['DELETE'])
+def delete(quote_id: int):
+    assert type(quote_id) is int, f"Bad type of <quote_id>: {type(quote_id)}"
+    delete_quote = f"DELETE FROM quotes WHERE id={quote_id}"
+    select_quote = f"SELECT * from quotes WHERE id={quote_id}"
+    connection = sqlite3.connect("store.db")
+    cursor = connection.cursor()
+    cursor.execute(select_quote)
+    quote_db = cursor.fetchone() #get tuple
+    cursor.close()
+    connection.close()
+    if quote_db is not None:
+        connection = sqlite3.connect("store.db")
+        cursor = connection.cursor()
+        cursor.execute(delete_quote)
+        connection.commit()
+        cursor.close()
+        connection.close()
+        return f"Quote with {quote_id} has deleted.", 200
+    else:
+        return f"Error - quote with id {quote_id} is not deleted.", 400
 
-@app.route("/quotes/random", methods =["GET"])
-def random_quote() -> dict:
-    return jsonify(choice(quotes)), 200
 
 
 @app.route("/quotes", methods=['POST'])
 def create_quote():
     """ Function creates new quote and adds it in the list. """
-    new_quote = f'{request.json.get("author")}", "{request.json.get("text")}' # На выходе мы получим словарь с данными
-    my_select = f'INSERT INTO quotes (author, text) VALUES ("{new_quote}");'
-    print(my_select)
+    create_quote = "INSERT INTO quotes (author,text) VALUES ('%s','%s')"
     connection = sqlite3.connect("store.db")
     cursor = connection.cursor()
-    cursor.execute(my_select)
+    cursor.execute(create_quote%(request.json.get("author"),request.json.get("text")))
+    connection.commit()
     cursor.close()
     connection.close()
     return jsonify(request.json), 201
+
 
 
 @app.route("/quotes/<int:quote_id>", methods=['PUT'])
@@ -149,14 +167,7 @@ def edit_quote(quote_id: int):
     return jsonify(error=f"Quote with id={quote_id} doesn't exist."), 404
 
 
-@app.route("/quotes/<int:quote_id>", methods=['DELETE'])
-def delete(quote_id: int):
-    assert type(quote_id) is int, f"Bad type of <quote_id>: {type(quote_id)}"
-    for quote in quotes:
-        if quote.get("id") == quote_id:
-            quotes.remove(quote)
-            return f"Quote with {quote_id} has deleted.", 200
-    return f"Quote with {quote_id} not found.", 404
+
 
 
 @app.route("/quotes/filter")
@@ -174,6 +185,11 @@ def filter_quotes():
                 result.append(quote)
         filtered_quotes = result.copy()
     return jsonify(filtered_quotes), 200
+
+
+@app.route("/quotes/random", methods =["GET"])
+def random_quote() -> dict:
+    return jsonify(choice(quotes)), 200
 
 
 if __name__ == "__main__":
