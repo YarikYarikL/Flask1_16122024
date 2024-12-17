@@ -2,7 +2,11 @@ from flask import Flask, jsonify, Response, request
 from typing import Any
 from markupsafe import escape
 from random import choice, random
+from pathlib import Path
+import sqlite3
 
+BASE_DIR = Path(__file__).parent
+path_to_db = BASE_DIR / "store.db" #путь до БД
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
@@ -15,40 +19,40 @@ about_me = {
 }
 
 
-quotes = [
-{
-"id": 1,
-"author": "Rick Cook",
-"text": "Программирование сегодня — это гонка \
-разработчиков программ, стремящихся писать программы с \
-большей и лучшей идиотоустойчивостью, и вселенной, которая \
-пытается создать больше отборных идиотов. Пока вселенная \
-побеждает.",
-"rating": 4
-},
-{
-"id": 2,
-"author": "Waldi Ravens",
-"text": "Программирование на С похоже на быстрые танцы \
-на только что отполированном полу людей с острыми бритвами в \
-руках.",
-"rating": 1
-},
-{
-"id": 3,
-"author": "Moshers Law of Software Engineering",
-"text": "Не волнуйтесь, если что-то не работает. Если \
-бы всё работало, вас бы уволили.",
-"rating": 5
-},
-{
-"id": 4,
-"author": "Yoggi Berra",
-"text": "В теории, теория и практика неразделимы. На \
-практике это не так.",
-"rating": 2
-},
-]
+# quotes = [
+# {
+# "id": 1,
+# "author": "Rick Cook",
+# "text": "Программирование сегодня — это гонка \
+# разработчиков программ, стремящихся писать программы с \
+# большей и лучшей идиотоустойчивостью, и вселенной, которая \
+# пытается создать больше отборных идиотов. Пока вселенная \
+# побеждает.",
+# "rating": 4
+# },
+# {
+# "id": 2,
+# "author": "Waldi Ravens",
+# "text": "Программирование на С похоже на быстрые танцы \
+# на только что отполированном полу людей с острыми бритвами в \
+# руках.",
+# "rating": 1
+# },
+# {
+# "id": 3,
+# "author": "Moshers Law of Software Engineering",
+# "text": "Не волнуйтесь, если что-то не работает. Если \
+# бы всё работало, вас бы уволили.",
+# "rating": 5
+# },
+# {
+# "id": 4,
+# "author": "Yoggi Berra",
+# "text": "В теории, теория и практика неразделимы. На \
+# практике это не так.",
+# "rating": 2
+# },
+# ]
 
 
 
@@ -65,20 +69,50 @@ def about():
 @app.route("/quotes")
 def get_quotes() -> list[dict[str: Any]]:
     """ функция преобразует список словарей в массив объектов json"""
+    select_quotes = "SELECT * from quotes"
+    connection = sqlite3.connect("store.db")
+    cursor = connection.cursor()
+    cursor.execute(select_quotes)
+    quotes_db = cursor.fetchall() #get list[tuple]
+    cursor.close()
+    connection.close()
+    #Подготовка данных для отправки
+    #list[tuple] -> list[dict]
+    keys = ("id", "author", "text")
+    quotes = []
+    for quote_db in quotes_db:
+        quote = dict(zip(keys, quote_db))
+        quotes.append(quote)
     return jsonify(quotes), 200
 
 
 @app.route("/quotes/<int:quote_id>")
 def get_quote(quote_id: int) -> dict:
-    for quote in quotes:
-        if quote.get("id") == quote_id:
-            return jsonify(quote), 201
-    return {"error":f"цитаты с id {quote_id} нет"}, 404
+    select_quote = f"SELECT * from quotes WHERE id={quote_id}"
+    connection = sqlite3.connect("store.db")
+    cursor = connection.cursor()
+    cursor.execute(select_quote)
+    quote_db = cursor.fetchone() #get tuple
+    cursor.close()
+    connection.close()
+    if quote_db is not None:
+        keys = ("id", "author", "text")
+        quote = dict(zip(keys, quote_db))
+        return jsonify(quote), 201
+    else:
+        return {"error":f"цитаты с id {quote_id} нет"}, 404
 
 
 @app.get("/quotes/count")
 def quote_count():
-    return jsonify(count = len(quotes)), 200
+    select_quote = f"SELECT COUNT(*) from quotes"
+    connection = sqlite3.connect("store.db")
+    cursor = connection.cursor()
+    cursor.execute(select_quote)
+    select_count = cursor.fetchone() #get tuple
+    cursor.close()
+    connection.close()    
+    return jsonify(count = select_count[0]), 200
 
 
 @app.route("/quotes/random", methods =["GET"])
@@ -90,6 +124,7 @@ def random_quote() -> dict:
 def create_quote():
     """ Function creates new quote and adds it in the list. """
     new_quote = request.json # На выходе мы получим словарь с данными
+    
     new_quote["id"] = quotes[-1].get("id") + 1 # Новый id
     #проверяем наличие ключа рейтинга <rating> и его валидность
     rating = new_quote.get("rating")
