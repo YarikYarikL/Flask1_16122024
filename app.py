@@ -123,15 +123,15 @@ def random_quote() -> dict:
 @app.route("/quotes", methods=['POST'])
 def create_quote():
     """ Function creates new quote and adds it in the list. """
-    new_quote = request.json # На выходе мы получим словарь с данными
-    
-    new_quote["id"] = quotes[-1].get("id") + 1 # Новый id
-    #проверяем наличие ключа рейтинга <rating> и его валидность
-    rating = new_quote.get("rating")
-    if rating is None or rating not in range(1,6):
-        new_quote["rating"] =1
-    quotes.append(new_quote)
-    return jsonify(new_quote), 201
+    new_quote = f'{request.json.get("author")}", "{request.json.get("text")}' # На выходе мы получим словарь с данными
+    my_select = f'INSERT INTO quotes (author, text) VALUES ("{new_quote}");'
+    print(my_select)
+    connection = sqlite3.connect("store.db")
+    cursor = connection.cursor()
+    cursor.execute(my_select)
+    cursor.close()
+    connection.close()
+    return jsonify(request.json), 201
 
 
 @app.route("/quotes/<int:quote_id>", methods=['PUT'])
