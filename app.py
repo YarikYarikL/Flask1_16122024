@@ -74,7 +74,6 @@ def get_quote(quote_id: int) -> dict:
 
 @app.get("/quotes/count")
 def quote_count():
-    qoutes_number = len(quotes)
     return jsonify(count = len(quotes)),200
 
 
@@ -88,38 +87,36 @@ def create_quote():
     """создание новой цитаты и добавление ее в словарь"""
     new_id = quotes[-1].get("id") + 1
     data = request.json
-    new_quote = {"id" : new_id,
-                 "author" : data.get("author"),
-                 "text" : data.get("text")
+    new_quote = {
+                "id" : new_id,
+                "author" : data.get("author"),
+                "text" : data.get("text")
                 }
     quotes.append(new_quote)
     print("data = ", data)
     return jsonify(new_quote), 201
 
 
-@app.route("/quotes/<id>", methods=['PUT'])
-def edit_quote(id):
+@app.route("/quotes/<int:quote_id>", methods=['PUT'])
+def edit_quote(quote_id: int):
+    """редактирование цитаты, если новые данные есть"""
     new_data = request.json
     for quote in quotes:
-        if quote.get("id") == id:
+        if quote.get("id") == quote_id:
             for key in new_data.keys():
                 if key in quote.keys():
                     quote.update({key: new_data.get(key)})
-            return f'Quote with id {id} is changed'
-    return f'Quote with id {id} doesn''t exist'
+            return jsonify(quote), 200
+    return f'Quote with id {quote_id} does not exist'
 
 
-
-
-
-@app.route("/quotes/<id>", methods=['DELETE'])
-def delete(id):
+@app.route("/quotes/<int:quote_id>", methods=['DELETE'])
+def delete(quote_id: int):
     for quote in quotes:
-        if quote.get("id") == id:
+        if quote.get("id") == quote_id:
             quotes.remove(quote)
-        return f"Quote with {id} is deleted.", 200
-    
-    
+            return f"Quote with {quote_id} is deleted.", 200
+    return f"Quote with {quote_id} does not exist.", 404
 
 
 if __name__ == "__main__":
