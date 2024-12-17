@@ -102,11 +102,11 @@ def edit_quote(id):
     new_data = request.json
     for quote in quotes:
         if quote.get("id") == id:
-            if new_data.get("author"):
-                quote["author"] = new_data.get("author")
-            if new_data.get("text"):
-                quote["text"] = new_data.get("text")
-            return f'{quotes}'
+            for key in new_data.keys():
+                if key in quote.keys():
+                    quote.update({key: new_data.get(key)})
+            return f'Quote with id {id} is changed'
+    return f'Quote with id {id} doesn''t exist'
 
 
 
