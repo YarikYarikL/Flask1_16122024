@@ -50,7 +50,6 @@ class AuthorModel(db.Model):
             'name': self.name}
 
 
-
 class QuoteModel(db.Model):
     __tablename__ = 'quotes'
     id: Mapped[int] = mapped_column(primary_key=True)
