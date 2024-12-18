@@ -13,6 +13,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, func
 from sqlalchemy.exc import InvalidRequestError
 
+from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey
+
+from flask_migrate import Migrate
+
 
 BASE_DIR = Path(__file__).parent
 
@@ -28,13 +33,29 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
+migrate = Migrate(app, db)
+
+
+class AuthorModel(db.Model):
+    __tablename__ = 'authors'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[int] = mapped_column(String(32), index= True, unique=True)
+    quotes: Mapped[list['QuoteModel']] = relationship( back_populates='author', lazy='dynamic')
+
+    def __init__(self, name):
+        self.name = name
+    
+    def to_dict(self):
+        return {'id': self.id,
+            'name': self.name}
+
 
 
 class QuoteModel(db.Model):
     __tablename__ = 'quotes'
-
     id: Mapped[int] = mapped_column(primary_key=True)
-    author: Mapped[str] = mapped_column(String(32))
+    author_id: Mapped[str] = mapped_column(ForeignKey('authors.id'))
+    author: Mapped['AuthorModel'] = relationship(back_populates='quotes')
     text: Mapped[str] = mapped_column(String(255))
 
     def __init__(self, author, text):
@@ -47,7 +68,6 @@ class QuoteModel(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "author": self.author,
             "text": self.text
         }
 
@@ -55,6 +75,35 @@ class QuoteModel(db.Model):
 def handle_exeption(e):
     """функция для перехвата HTTP ошибок и возврата в виде JSON"""
     return jsonify({"error": str(e)}), e.code
+
+
+@app.route("/authors", methods=["POST"])
+def create_author():
+    author_data = request.json
+    author = AuthorModel(author_data["name"])
+    db.session.add(author)
+    db.session.commit()
+    return author.to_dict(), 201
+
+#URL: /author/id/quotes
+@app.route("/authors/<int:author_id>/quotes", methods = ["GET", "POST"])
+def get_author_quotes(author_id: int):
+    author = db.get_or_404(AuthorModel, author_id)
+    if request.method == "GET":
+        quotes = []
+        for quote in author.quotes:
+            quotes.append(quote.to_dict())
+        return jsonify(author=author.to_dict() | {"quotes": quotes}), 200
+    elif request.method == "POST":
+        new_quote = request.json
+        q = QuoteModel(author, new_quote["text"])
+        db.session.add(q)
+        db.session.commit()
+        return jsonify(q.to_dict() | {"author_id": author.id}), 201
+    else:
+        abort(405)
+
+
 
 
 @app.route("/quotes")
