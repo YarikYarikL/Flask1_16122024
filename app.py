@@ -4,104 +4,59 @@ from markupsafe import escape
 from random import choice, random
 from pathlib import Path
 import sqlite3
+#import from SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String
+
 
 BASE_DIR = Path(__file__).parent
-path_to_db = BASE_DIR / "store.db" #путь до БД
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{BASE_DIR / 'quotes.db'}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["SQLALCHEMY_ECHO"] = False
 
 
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(path_to_db)
-    return db
+class Base(DeclarativeBase):
+    pass
+
+db = SQLAlchemy(model_class=Base)
+db.init_app(app)
 
 
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
+class QuoteModel(db.Model):
+    __tablename__ = 'quotes'
 
+    id: Mapped[int] = mapped_column(primary_key=True)
+    author: Mapped[str] = mapped_column(String(32))
+    text: Mapped[str] = mapped_column(String(255))
 
-def init_db():
-    with app.app_context():
-        db = get_db()
-        with app.open_resource('sqlite_examples/storedb_dump.sql', mode='r') as f:
-            db.cursor().executescript(f.read())
-        db.commit()
+    def __init__(self, author, text):
+        self.author = author
+        self.text  = text
 
+    def __repr__(self):
+        return f"QuoteModel({self.id, self.author})"
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "author": self.author,
+            "text": self.text
+        }
 
-about_me = {
-"name": "Евгений",
-"surname": "Юрченко",
-"email": "eyurchenko@specialist.ru"
-}
-
-
-# quotes = [
-# {
-# "id": 1,
-# "author": "Rick Cook",
-# "text": "Программирование сегодня — это гонка \
-# разработчиков программ, стремящихся писать программы с \
-# большей и лучшей идиотоустойчивостью, и вселенной, которая \
-# пытается создать больше отборных идиотов. Пока вселенная \
-# побеждает.",
-# "rating": 4
-# },
-# {
-# "id": 2,
-# "author": "Waldi Ravens",
-# "text": "Программирование на С похоже на быстрые танцы \
-# на только что отполированном полу людей с острыми бритвами в \
-# руках.",
-# "rating": 1
-# },
-# {
-# "id": 3,
-# "author": "Moshers Law of Software Engineering",
-# "text": "Не волнуйтесь, если что-то не работает. Если \
-# бы всё работало, вас бы уволили.",
-# "rating": 5
-# },
-# {
-# "id": 4,
-# "author": "Yoggi Berra",
-# "text": "В теории, теория и практика неразделимы. На \
-# практике это не так.",
-# "rating": 2
-# },
-# ]
-
-
-
-@app.route("/") #первый url, который мы обрабатываем
-def hello_world():#функций-обработчик
-    return jsonify(hello="Hello, World!"), 200
-
-
-@app.route("/about")
-def about():
-    return jsonify(about_me), 200
 
 
 @app.route("/quotes")
 def get_quotes() -> list[dict[str: Any]]:
     """ функция преобразует список словарей в массив объектов json"""
-    select_quotes = "SELECT * from quotes"
-    cursor = get_db().cursor()
-    cursor.execute(select_quotes)
-    quotes_db = cursor.fetchall() #get list[tuple]
-    #Подготовка данных для отправки
-    #list[tuple] -> list[dict]
-    keys = ("id", "author", "text", "rating")
+    quotes_db = db.session.scalars(db.select(QuoteModel)).all()
     quotes = []
-    for quote_db in quotes_db:
-        quote = dict(zip(keys, quote_db))
-        quotes.append(quote)
+    for quote in quotes_db:
+        quotes.append(quote.to_dict())
     return jsonify(quotes), 200
 
 
@@ -209,10 +164,10 @@ def edit_quote(quote_id: int):
 
 
 
-#homework
-@app.route("/quotes/filter")
-def filter_quotes():
-    new_data = request.args.items()
+# #homework
+# @app.route("/quotes/filter")
+# def filter_quotes():
+#     new_data = request.args.items()
 
 
 
@@ -222,6 +177,4 @@ def random_quote() -> dict:
 
 
 if __name__ == "__main__":
-    if not path_to_db.exists():
-        init_db()
     app.run(debug=True)
