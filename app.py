@@ -8,7 +8,7 @@ import sqlite3
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String
+from sqlalchemy import String, func
 
 
 BASE_DIR = Path(__file__).parent
@@ -62,26 +62,18 @@ def get_quotes() -> list[dict[str: Any]]:
 
 @app.route("/quotes/<int:quote_id>")
 def get_quote(quote_id: int) -> dict:
-    cursor = get_db().cursor()
-    cursor.execute("SELECT * from quotes WHERE id=?",(quote_id,))
-    quote_db = cursor.fetchone() #get tuple
+    quote_db = db.session.get(QuoteModel, quote_id)
     if quote_db is not None:
-        keys = ("id", "author", "text", "rating")
-        quote = dict(zip(keys, quote_db))
-        return jsonify(quote), 200
+        return jsonify(quote_db.to_dict()), 200
     else:
         return {"error":f"quote with id {quote_id} not exists"}, 404
 
 
 @app.get("/quotes/count")
 def quote_count():
-    select_count = "SELECT COUNT(*) from quotes"
-    cursor = get_db().cursor()
-    cursor.execute(select_count)
-    count = cursor.fetchone() #get tuple
-    if count:
-        return jsonify(count = count[0]), 200
-    abort(503) #server error
+    count = db.session.scalar(func.count(QuoteModel.id))
+    return jsonify(count=count),200
+
 
 
 @app.route("/quotes/<int:quote_id>", methods=['DELETE'])
