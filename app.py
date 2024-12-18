@@ -78,47 +78,25 @@ def quote_count():
     return jsonify(count=count),200
 
 
+@app.route("/quotes", methods=['POST'])
+def create_quote():
+    if not request.json or 'author' not in request.json or 'text' not in request.json:
+        return jsonify(error="Missing required fields: author and text"), 400
+    quote_db = QuoteModel(author=request.json.get("author"),text=request.json.get("text"))
+    db.session.add(quote_db)
+    db.session.commit()
+    return jsonify(new_quote = request.json),200
+
+
 
 @app.route("/quotes/<int:quote_id>", methods=['DELETE'])
 def delete(quote_id: int):
-    delete_sql = "DELETE FROM quotes WHERE id = ?"
-    params = (quote_id,)
-    connection = get_db()
-    cursor = connection.cursor()
-    cursor.execute(delete_sql, params)
-    rows = cursor.rowcount
-    if rows:
-        connection.commit()
+    quote_for_delete = db.get_or_404(QuoteModel, quote_id)
+    if quote_for_delete:
+        db.session.delete(quote_for_delete)
+        db.session.commit()
         return jsonify(message = f"Quote with {quote_id} is deleted."), 200
     abort(404, f"Error - no quote with id {quote_id}.")
-
-
-
-@app.route("/quotes", methods=['POST'])
-def create_quote():
-    """ Create a new quote in the database """
-    new_quote = request.json
-    if not new_quote or 'author' not in new_quote or 'text' not in new_quote:
-        return jsonify(error="Missing required fields: author and text"), 400
-
-    rating = new_quote.get("rating", 1)
-    if rating not in range(1, 6):
-        rating = 1
-    new_quote["rating"] = rating
-
-    insert_quote = "INSERT INTO quotes (author, text, rating) VALUES (?, ?, ?)"
-    connection = get_db()
-    cursor = connection.cursor()
-    cursor.execute(insert_quote, tuple(new_quote.values()))
-    new_quote_id = cursor.lastrowid
-    try:
-        connection.commit()
-        cursor.close()
-    except Exception as e:
-        abort(503,f"error: {str(e)}")
-    new_quote['id'] = new_quote_id
-    return jsonify(new_quote), 201
-
 
 
 @app.route("/quotes/<int:quote_id>", methods=['PUT'])
@@ -129,40 +107,16 @@ def edit_quote(quote_id: int):
     allowed_keys = {"author", "text", "rating"}
     if not set(new_data.keys()).issubset(allowed_keys):
         return jsonify(error="Invalid fields for update"), 400
-   
-    if "rating" in new_data and new_data["rating"] not in range(1, 6):
-        return jsonify(error="Rating must be between 1 and 5"), 400
-
-    connection = get_db()
-    cursor = connection.cursor()
-  
-    update_values = list(new_data.values())
-    update_fields = [f"{key} =?" for key in new_data]
     
-    if not update_fields:
-        return jsonify(error="No valid update fields provided"), 400
-
-    update_values.append(quote_id)
-    update_query = f"UPDATE quotes SET {', '.join(update_fields)} WHERE id = ?"
-    
-    cursor.execute(update_query, update_values)
-    connection.commit()
- 
-    if cursor.rowcount == 0:
-        return jsonify(error=f"Quote with id={quote_id} not found"), 404
-    
-    responce, status_code = get_quote(quote_id)
-    if status_code == 200:
-        return responce, 200
-    abort(404, f"Quote with id ={quote_id} not found.")
+    quote_db = db.get_or_404(QuoteModel, quote_id)
+    if new_data.get("text"):
+        quote_db.text = new_data.get("text")
+    if new_data.get("author"):
+        quote_db.author = new_data.get("author")
+    db.session.commit()
+    return f"Quote with id {quote_id} is changed"
 
 
-
-
-# #homework
-# @app.route("/quotes/filter")
-# def filter_quotes():
-#     new_data = request.args.items()
 
 
 
