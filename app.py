@@ -80,23 +80,37 @@ def quote_count():
 
 @app.route("/quotes", methods=['POST'])
 def create_quote():
-    if not request.json or 'author' not in request.json or 'text' not in request.json:
-        return jsonify(error="Missing required fields: author and text"), 400
-    quote_db = QuoteModel(author=request.json.get("author"),text=request.json.get("text"))
-    db.session.add(quote_db)
-    db.session.commit()
-    return jsonify(new_quote = request.json),200
+    data = request.json
+   
+    try:
+        quote = QuoteModel(**data)
+        db.session.add(quote)
+        db.session.commit()
+
+    except TypeError:
+        return jsonify(error=(
+                       "Invalid data. Required author & text"
+                       f"Received: {', '.join(data.keys())}"
+                      )),400
+    except Exception as e:
+        abort(503, f"database error {str(e)}")
+
+    return jsonify(quote.to_dict()), 201
+
 
 
 
 @app.route("/quotes/<int:quote_id>", methods=['DELETE'])
 def delete(quote_id: int):
-    quote_for_delete = db.get_or_404(QuoteModel, quote_id)
-    if quote_for_delete:
-        db.session.delete(quote_for_delete)
+    quote = db.get_or_404(QuoteModel, quote_id)
+    db.session.delete(quote)
+    try:
         db.session.commit()
-        return jsonify(message = f"Quote with {quote_id} is deleted."), 200
-    abort(404, f"Error - no quote with id {quote_id}.")
+        return jsonify(success = f"Quote with {quote_id} is deleted."), 200
+    except Exception as e:
+        db.session.rollback()
+        abort(503, f"database error {str(e)}")
+
 
 
 @app.route("/quotes/<int:quote_id>", methods=['PUT'])
@@ -104,17 +118,26 @@ def edit_quote(quote_id: int):
     """ Update an existing quote """
     new_data = request.json
 
-    allowed_keys = {"author", "text", "rating"}
+    allowed_keys = {"author", "text"}
     if not set(new_data.keys()).issubset(allowed_keys):
-        return jsonify(error="Invalid fields for update"), 400
+        return jsonify(error=f"Invalid fields for update: {', '.join(set(new_data.keys())-allowed_keys)}"), 400
     
     quote_db = db.get_or_404(QuoteModel, quote_id)
-    if new_data.get("text"):
-        quote_db.text = new_data.get("text")
-    if new_data.get("author"):
-        quote_db.author = new_data.get("author")
-    db.session.commit()
-    return f"Quote with id {quote_id} is changed"
+    try:
+        for key, value in new_data.items():
+            if not hasattr(quote_db, key):
+                raise Exception(f"Invalid {key = }.")
+            setattr(quote_db,key,value)
+        db.session.commit()
+        return jsonify(quote_db.to_dict()),200
+    except Exception as e:
+        abort(400,f"error: {str(e)}")
+
+
+@app.route("/quotes/filter")
+def filter_quote():
+    
+    return jsonify(choice(quotes)), 200
 
 
 
