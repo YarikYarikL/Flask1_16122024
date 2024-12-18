@@ -11,6 +11,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, func
+from sqlalchemy.exc import InvalidRequestError
 
 
 BASE_DIR = Path(__file__).parent
@@ -136,16 +137,15 @@ def edit_quote(quote_id: int):
 
 @app.route("/quotes/filter")
 def filter_quote():
-    
-    return jsonify(choice(quotes)), 200
+    data = request.args
+    try:
+        quotes = db.session.scalars(db.select(QuoteModel).filter_by(**data)).all()
+    except InvalidRequestError:
+        abort(400, f"Invalid data: {', '.join(data.keys())}.")
+    return jsonify([quote.to_dict() for quote in quotes]), 200
 
 
 
-
-
-@app.route("/quotes/random", methods =["GET"])
-def random_quote() -> dict:
-    return jsonify(choice(quotes)), 200
 
 
 if __name__ == "__main__":
