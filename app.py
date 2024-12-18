@@ -3,7 +3,9 @@ from typing import Any
 from markupsafe import escape
 from random import choice, random
 from pathlib import Path
+from werkzeug.exceptions import HTTPException
 import sqlite3
+
 #import from SQLAlchemy
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
@@ -48,6 +50,10 @@ class QuoteModel(db.Model):
             "text": self.text
         }
 
+@app.errorhandler(HTTPException)
+def handle_exeption(e):
+    """функция для перехвата HTTP ошибок и возврата в виде JSON"""
+    return jsonify({"error": str(e)}), e.code
 
 
 @app.route("/quotes")
@@ -62,11 +68,8 @@ def get_quotes() -> list[dict[str: Any]]:
 
 @app.route("/quotes/<int:quote_id>")
 def get_quote(quote_id: int) -> dict:
-    quote_db = db.session.get(QuoteModel, quote_id)
-    if quote_db is not None:
-        return jsonify(quote_db.to_dict()), 200
-    else:
-        return {"error":f"quote with id {quote_id} not exists"}, 404
+    quote_db = db.get_or_404(QuoteModel, quote_id)
+    return jsonify(quote_db.to_dict()), 200
 
 
 @app.get("/quotes/count")
